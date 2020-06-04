@@ -8,6 +8,8 @@ app = Flask(__name__)
 import requests
 from bs4 import BeautifulSoup
 import subprocess
+from typing import NamedTuple
+
 
 def openHTML():
 	basicPage = ''' <!DOCTYPE html>
@@ -55,6 +57,15 @@ def closeHTML():
 def homeHTML():
 	basicPage = '''	<body>
 						<h1>Youtube/Spotify</h1>
+						<iframe src="searchPage" height="400" width="100%"></iframe>
+						<h2>Currently Playing: </h2>
+						<iframe src="queue" height="400" width="20%"></iframe>
+					</body>
+				'''
+	return openHTML()+headHTML()+basicPage+closeHTML()
+
+def searchFrame():
+	basicPage = '''	<body>
 						<form method="POST" action="search">
 							<input name="text">
 							<input type="submit">
@@ -62,17 +73,35 @@ def homeHTML():
 					</body>
 				'''
 	return openHTML()+headHTML()+basicPage+closeHTML()
-
 def searchHTML(searchTerm, ids, names, URLs):
 	basicPage = '''	<body>
-						<h1>Youtube/Spotify</h1>
-						<p>Search Results for '''+searchTerm+'''</p>
+						<p>Search Results for "'''+searchTerm+'''"</p>
+						<p><a href="searchPage">Click here to return to search page</a></p>
 				'''
 	for i in range(len(ids)):
 		basicPage+=generateResult(ids[i],names[i],URLs[i])
 	basicPage += ''' </body>
 				'''
 	return openHTML()+headHTML()+basicPage+closeHTML()
+def generateQueueItem(vidID,name,url):
+	basicPage = '''	<div class="main">
+						<div class="leftbox">
+							<img src='https://img.youtube.com/vi/'''+vidID+'''/maxresdefault.jpg' width="160" height="90">
+						</div>
+						<div class="rightbox">
+							<div class="rightboxtop">
+								<h3><a href="'''+url+'''">'''+name+'''</a></h3>
+							</div>
+							<div class="rightboxbot">
+								<form method="POST" action="addSong">
+									<input type="submit" value="Add Song">
+									<input type="submit" value="Add Front of Queue">
+								</form>
+							</div>
+						</div>
+					</div>
+				'''
+	return basicPage
 def generateResult(vidID,name,url):
 	basicPage = '''	<div class="main">
 						<div class="leftbox">
@@ -83,7 +112,10 @@ def generateResult(vidID,name,url):
 								<h3><a href="'''+url+'''">'''+name+'''</a></h3>
 							</div>
 							<div class="rightboxbot">
-								<h3>Add Buttons Here</h3>
+								<form method="POST" action="addSong">
+									<input type="submit" value="Add Song">
+									<input type="submit" value="Add Front of Queue">
+								</form>
 							</div>
 						</div>
 					</div>
@@ -94,7 +126,6 @@ def generateResult(vidID,name,url):
 	
 def fsearchHTML():
 	basicPage = '''	<body>
-						<h1>Youtube/Spotify</h1>
 						<p>Search Failed</p>
 					</body>
 				'''
@@ -102,6 +133,21 @@ def fsearchHTML():
 @app.route('/')
 def root():
 	return homeHTML()
+@app.route('/searchPage')
+def searchPage():
+	return searchFrame()
+@app.route('/addSong', methods=['POST'])
+def addSong():
+	
+	
+	
+	
+	return searchFrame()
+	
+@app.route('/queue')
+def queue():
+	
+	return searchFrame()
 @app.route('/search', methods=['POST'])
 def search():
 	st = request.form['text']
@@ -115,6 +161,8 @@ def search():
 	names = []
 	URLs = []
 	results = list(soup.findAll('a',attrs={'class':'yt-uix-tile-link'}))
+	if len(results)<5:
+		return fsearchHTML()
 	for i in range(5):
 		foundString = str(results[i])
 		offset = foundString.find("href")
