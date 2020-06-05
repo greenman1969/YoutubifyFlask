@@ -87,8 +87,6 @@ def searchHTML(searchTerm, ids, names, URLs):
 							<input name="text" value="'''+searchTerm+'''">
 							<input type="submit">
 						</form>
-						<p>Search Results for "'''+searchTerm+'''"</p>
-						<p><a href="searchPage">Click here to return to search page</a></p>
 				'''
 	for i in range(len(ids)):
 		basicPage+=generateResult(ids[i],names[i],URLs[i])
@@ -132,6 +130,12 @@ def generateNowPlaying():
 		basicPage = '''	<audio controls autoplay id="player">
 							<source src="/static/'''+queue[0][0]+'''.mp3" type="audio/mpeg">
 						</audio>
+						<script>
+							var aud = document.getElementById("player");
+							aud.onended = function() {
+								window.location.replace("/next");
+							};
+						</script>
 					'''
 		basicPage += generateQueueItem(queue[0][0],queue[0][1],queue[0][2],0,False)
 		basicPage += '''<form method='POST' action="nowPlaying">
@@ -183,14 +187,13 @@ def generateResult(vidID,name,url):
 	
 	
 	
-def fsearchHTML():
+def fsearchHTML(searchTerm):
 	basicPage = '''	<body>
 						<form method="POST" action="search">
-							<input name="text">
+							<input name="text" value="'''+searchTerm+'''">
 							<input type="submit">
 						</form>
 						<p>Search Failed</p>
-						<p><a href="searchPage">Click here to return to search page</a></p>
 					</body>
 				'''
 	return openHTML()+headHTML()+basicPage+closeHTML()
@@ -214,7 +217,7 @@ def addSong():
 		queue.append(queueItem)
 	elif request.form['submit'] == "Add Front of Queue":
 		print("Add Song to Front of Queue")
-		queue.insert(0,queueItem)
+		queue.insert(1,queueItem)
 	return lastSearchPage
 	
 @app.route('/nowPlaying', methods=['GET','POST'])
@@ -226,6 +229,13 @@ def nowPlaying():
 			temp = queue[0]
 			queue.remove(temp)
 			queue.append(temp)
+	return generateNowPlaying()
+
+@app.route('/next')
+def next():
+	temp = queue[0]
+	queue.remove(temp)
+	queue.append(temp)
 	return generateNowPlaying()
 
 @app.route('/queuePage', methods=['GET','POST'])
@@ -247,7 +257,7 @@ def search():
 	URLs = []
 	results = list(soup.findAll('a',attrs={'class':'yt-uix-tile-link'}))
 	if len(results)<1:
-		return fsearchHTML()
+		return fsearchHTML(st)
 		
 	numResults = len(results)
 	if numResults > 20:
