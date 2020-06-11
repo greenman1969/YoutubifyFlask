@@ -8,7 +8,7 @@ app = Flask(__name__, static_folder='static')
 import requests
 from bs4 import BeautifulSoup
 import subprocess
-import youtube_dl
+import os
 
 
 queue = []
@@ -52,6 +52,10 @@ def headHTML():
 							}
 							#player {
 								width:100%
+							}
+							body {
+								background-color:black;
+								color:white;
 							}
 						</style>
 					</head>
@@ -100,7 +104,7 @@ def generateQueueItem(vidID,name,url,queueNum,isForQueue):
 						</div>
 						<div class="rightbox">
 							<div class="rightboxtop">
-								<h3><a href="'''+url+'''">'''+name+'''</a></h3>
+								<h3>'''+name+'''</h3>
 							</div>
 							<div class="rightboxbot">
 								<form method="POST" action="'''
@@ -169,7 +173,7 @@ def generateResult(vidID,name,url):
 						</div>
 						<div class="rightbox">
 							<div class="rightboxtop">
-								<h3><a href="'''+url+'''">'''+name+'''</a></h3>
+								<h3>'''+name+'''</h3>
 							</div>
 							<div class="rightboxbot">
 								<form method="POST" action="addSong">
@@ -209,8 +213,19 @@ def addSong():
 	
 	queueItem = [request.form['vidID'],request.form['songName'],request.form['url']]
 	
+	# Duplicate Prevention
+	for i in queue:
+		if i[0]==queueItem[0]:
+			print("Item already Exists")
+			return lastSearchPage
+	
+	
 	# Add Code to download the audio of the song in the queue.
 	subprocess.run(["youtube-dl",request.form['url'],"-f 140","-x","--audio-format","mp3","-o","static/"+request.form['vidID']+".mp3"])
+	subprocess.run(["ffmpeg-normalize","static/"+request.form['vidID']+".mp3","-c:a","libmp3lame","-b:a","320K","-f","-pr","-o","static/"+request.form['vidID']+".mp3"])
+	#if os.path.exists("downloaded/"+request.form['vidID']+".mp3"):
+	#	os.remove("downloaded/"+request.form['vidID']+".mp3")
+	#	print(request.form['vidID'],"deleted")
 	
 	if request.form['submit'] == "Add Song":
 		print("Add Song")
@@ -225,7 +240,10 @@ def nowPlaying():
 	if request.method == 'POST':
 		if request.form['submit'] == "Remove Song":
 			queue.remove(queue[int(request.form['queueNum'])])
-		if request.form['submit'] == "Next":
+			if os.path.exists("static/"+request.form['vidID']+".mp3"):
+				os.remove("static/"+request.form['vidID']+".mp3")
+				print(request.form['vidID'],"deleted")
+		elif request.form['submit'] == "Next":
 			temp = queue[0]
 			queue.remove(temp)
 			queue.append(temp)
@@ -278,7 +296,7 @@ def search():
 def generateSearchURL(searchTerm):
 	return '''https://youtube.com/results?search_query='''+searchTerm.replace(' ','+')
 if __name__ == '__main__':
-	app.run()
+	app.run(host='0.0.0.0')
 
 
 # searchterm = 'To+Be+Alone+Five+Finger+Death+Punch'
