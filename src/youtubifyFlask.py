@@ -10,9 +10,15 @@ from bs4 import BeautifulSoup
 import subprocess
 import os
 
+# Add Code to save and automatically reload queues and settings
+# Settings:
+#	"audionormalization":"true"/"false"
+#	"downloadthumbs":"true"/"false"
+
 
 queue = []
 lastSearchPage = ""
+
 
 def openHTML():
 	basicPage = ''' <!DOCTYPE html>
@@ -131,7 +137,7 @@ def generateQueueItem(vidID,name,url,queueNum,isForQueue):
 def generateNowPlaying():
 	
 	if len(queue) != 0:
-		basicPage = '''	<audio controls autoplay id="player">
+		basicPage = '''	<audio controls id="player">
 							<source src="/static/'''+queue[0][0]+'''.mp3" type="audio/mpeg">
 						</audio>
 						<script>
@@ -158,6 +164,34 @@ def generateNowPlaying():
 		
 	return openHTML()+headHTML()+basicPage+closeHTML()
 	
+def generateNext():
+	if len(queue) != 0:
+		basicPage = '''	<audio controls autoplay id="player">
+							<source src="/static/'''+queue[0][0]+'''.mp3" type="audio/mpeg">
+						</audio>
+						<script>
+							var aud = document.getElementById("player");
+							aud.onended = function() {
+								window.location.replace("/next");
+							};
+						</script>
+					'''
+		basicPage += generateQueueItem(queue[0][0],queue[0][1],queue[0][2],0,False)
+		basicPage += '''<form method='POST' action="nowPlaying">
+							<input type="submit" name="submit" value="Next" width="100%">
+						</form>
+						'''
+		count = 1
+		for i in queue[1:]:
+			basicPage += generateQueueItem(i[0],i[1],i[2],count,True)
+			count+=1
+		
+	else:
+		basicPage='''	<head>
+							<meta http-equiv="refresh" content="1">
+						</head>'''
+		
+	return openHTML()+headHTML()+basicPage+closeHTML()
 def generateQueue():
 	basicPage=""
 	count = 1
@@ -223,6 +257,9 @@ def addSong():
 	# Add Code to download the audio of the song in the queue.
 	subprocess.run(["youtube-dl",request.form['url'],"-f 140","-x","--audio-format","mp3","-o","static/"+request.form['vidID']+".mp3"])
 	subprocess.run(["ffmpeg-normalize","static/"+request.form['vidID']+".mp3","-c:a","libmp3lame","-b:a","320K","-f","-pr","-o","static/"+request.form['vidID']+".mp3"])
+	
+	# Add Code to download the youtube thumbnail
+	
 	#if os.path.exists("downloaded/"+request.form['vidID']+".mp3"):
 	#	os.remove("downloaded/"+request.form['vidID']+".mp3")
 	#	print(request.form['vidID'],"deleted")
@@ -247,6 +284,7 @@ def nowPlaying():
 			temp = queue[0]
 			queue.remove(temp)
 			queue.append(temp)
+			return generateNext()
 	return generateNowPlaying()
 
 @app.route('/next')
@@ -254,7 +292,7 @@ def next():
 	temp = queue[0]
 	queue.remove(temp)
 	queue.append(temp)
-	return generateNowPlaying()
+	return generateNext()
 
 @app.route('/queuePage', methods=['GET','POST'])
 def queuePage():
