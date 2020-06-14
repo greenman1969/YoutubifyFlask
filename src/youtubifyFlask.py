@@ -15,6 +15,8 @@ import os
 #	"audionormalization":"true"/"false"
 #	"downloadthumbs":"true"/"false"
 
+downloadThumbs = True
+audioNormalization = True
 
 queue = []
 lastSearchPage = ""
@@ -106,8 +108,12 @@ def searchHTML(searchTerm, ids, names, URLs):
 def generateQueueItem(vidID,name,url,queueNum,isForQueue):
 	basicPage = '''	<div class="main">
 						<div class="leftbox">
-							<img src='https://img.youtube.com/vi/'''+vidID+'''/maxresdefault.jpg' width="160" height="90">
-						</div>
+				'''
+	if downloadThumbs:
+		basicPage += '''<img src='/static/'''+vidID+'''.jpg' width="160" height="90">'''
+	else:
+		basicPage += '''<img src='https://img.youtube.com/vi/'''+vidID+'''/maxresdefault.jpg' width="160" height="90">'''
+	basicPage += '''	</div>
 						<div class="rightbox">
 							<div class="rightboxtop">
 								<h3>'''+name+'''</h3>
@@ -256,13 +262,13 @@ def addSong():
 	
 	# Add Code to download the audio of the song in the queue.
 	subprocess.run(["youtube-dl",request.form['url'],"-f 140","-x","--audio-format","mp3","-o","static/"+request.form['vidID']+".mp3"])
-	subprocess.run(["ffmpeg-normalize","static/"+request.form['vidID']+".mp3","-c:a","libmp3lame","-b:a","320K","-f","-pr","-o","static/"+request.form['vidID']+".mp3"])
+	if audioNormalization:
+		subprocess.run(["ffmpeg-normalize","static/"+request.form['vidID']+".mp3","-c:a","libmp3lame","-b:a","320K","-f","-pr","-o","static/"+request.form['vidID']+".mp3"])
 	
 	# Add Code to download the youtube thumbnail
+	if downloadThumbs:
+		subprocess.run(["wget","-O","static/"+request.form['vidID']+".jpg","https://img.youtube.com/vi/"+request.form['vidID']+"/maxresdefault.jpg"])
 	
-	#if os.path.exists("downloaded/"+request.form['vidID']+".mp3"):
-	#	os.remove("downloaded/"+request.form['vidID']+".mp3")
-	#	print(request.form['vidID'],"deleted")
 	
 	if request.form['submit'] == "Add Song":
 		print("Add Song")
