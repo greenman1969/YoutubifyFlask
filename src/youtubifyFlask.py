@@ -9,6 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 import subprocess
 import os
+import threading
 
 # Add Code to save and automatically reload queues and settings
 # Settings:
@@ -18,8 +19,36 @@ import os
 downloadThumbs = True
 audioNormalization = True
 
+toAdd = []
 queue = []
 lastSearchPage = ""
+
+
+
+# Write a thread to add songs that have been added to an add queue
+# Download them and do FFMPEG magic on them.
+
+def songDownloader(vidID, songName, url, submit):
+	
+	queueItem = [vidID,songName,url]
+	
+	# Add Code to download the audio of the song in the queue.
+	subprocess.run(["youtube-dl",url,"-f 140","-x","--audio-format","mp3","-o","download/"+vidID+".mp3"])
+	if audioNormalization:
+		subprocess.run(["ffmpeg-normalize","static/"+vidID+".mp3","-c:a","libmp3lame","-b:a","320K","-f","-pr","-o","download/"+vidID+".mp3"])
+		subprocess.run(["ffmpeg","-i","download/"+vidID+".mp3","-filter:a","volume=10","-y","static/"+vidID+".mp3"])
+	
+	# Add Code to download the youtube thumbnail
+	if downloadThumbs:
+		subprocess.run(["wget","-O","static/"+vidID+".jpg","https://img.youtube.com/vi/"+vidID+"/maxresdefault.jpg"])
+	
+	if submit == "Add Song":
+		print("Add Song")
+		queue.append(queueItem)
+	elif submit == "Add Front of Queue":
+		print("Add Song to Front of Queue")
+		queue.insert(1,queueItem)
+
 
 
 def openHTML():
@@ -105,7 +134,7 @@ def searchHTML(searchTerm, ids, names, URLs):
 	basicPage += ''' </body>
 				'''
 	return openHTML()+headHTML()+basicPage+closeHTML()
-def generateQueueItem(vidID,name,url,queueNum,isForQueue):
+def generateQueueItem(vidID,name,url,queueNum):
 	basicPage = '''	<div class="main">
 						<div class="leftbox">
 				'''
@@ -116,18 +145,10 @@ def generateQueueItem(vidID,name,url,queueNum,isForQueue):
 	basicPage += '''	</div>
 						<div class="rightbox">
 							<div class="rightboxtop">
-								<h3>'''+name+'''</h3>
+								<h3><small>'''+name+'''</small></h3>
 							</div>
 							<div class="rightboxbot">
-								<form method="POST" action="'''
-								
-								
-	if isForQueue == True:
-		basicPage += "queuePage"
-	else:
-		basicPage += "nowPlaying"
-	
-	basicPage += '''">
+								<form method="POST" action="nowPlaying">
 									<input type="hidden" name="vidID" value="'''+vidID+'''">
 									<input type="hidden" name="songName" value="'''+name+'''">
 									<input type="hidden" name="url" value="'''+url+'''">
@@ -153,14 +174,14 @@ def generateNowPlaying():
 							};
 						</script>
 					'''
-		basicPage += generateQueueItem(queue[0][0],queue[0][1],queue[0][2],0,False)
+		basicPage += generateQueueItem(queue[0][0],queue[0][1],queue[0][2],0)
 		basicPage += '''<form method='POST' action="nowPlaying">
 							<input type="submit" name="submit" value="Next" width="100%">
 						</form>
 						'''
 		count = 1
 		for i in queue[1:]:
-			basicPage += generateQueueItem(i[0],i[1],i[2],count,True)
+			basicPage += generateQueueItem(i[0],i[1],i[2],count)
 			count+=1
 		
 	else:
@@ -202,7 +223,7 @@ def generateQueue():
 	basicPage=""
 	count = 1
 	for i in queue[1:]:
-		basicPage += generateQueueItem(i[0],i[1],i[2],count,True)
+		basicPage += generateQueueItem(i[0],i[1],i[2],count)
 		count+=1
 		
 	return openHTML()+headHTML()+basicPage+closeHTML()
@@ -259,23 +280,8 @@ def addSong():
 			print("Item already Exists")
 			return lastSearchPage
 	
-	
-	# Add Code to download the audio of the song in the queue.
-	subprocess.run(["youtube-dl",request.form['url'],"-f 140","-x","--audio-format","mp3","-o","static/"+request.form['vidID']+".mp3"])
-	if audioNormalization:
-		subprocess.run(["ffmpeg-normalize","static/"+request.form['vidID']+".mp3","-c:a","libmp3lame","-b:a","320K","-f","-pr","-o","static/"+request.form['vidID']+".mp3"])
-	
-	# Add Code to download the youtube thumbnail
-	if downloadThumbs:
-		subprocess.run(["wget","-O","static/"+request.form['vidID']+".jpg","https://img.youtube.com/vi/"+request.form['vidID']+"/maxresdefault.jpg"])
-	
-	
-	if request.form['submit'] == "Add Song":
-		print("Add Song")
-		queue.append(queueItem)
-	elif request.form['submit'] == "Add Front of Queue":
-		print("Add Song to Front of Queue")
-		queue.insert(1,queueItem)
+	t = threading.Thread(target=songDownloader, args=(request.form['vidID'],request.form['songName'],request.form['url'],request.form['submit'],), daemon=True)
+	t.start()
 	return lastSearchPage
 	
 @app.route('/nowPlaying', methods=['GET','POST'])
@@ -285,7 +291,8 @@ def nowPlaying():
 			queue.remove(queue[int(request.form['queueNum'])])
 			if os.path.exists("static/"+request.form['vidID']+".mp3"):
 				os.remove("static/"+request.form['vidID']+".mp3")
-				print(request.form['vidID'],"deleted")
+			if downloadThumbs and os.path.exists("static/"+request.form['vidID']+".jpg"):
+				os.remove("static/"+request.form['vidID']+".jpg")
 		elif request.form['submit'] == "Next":
 			temp = queue[0]
 			queue.remove(temp)
