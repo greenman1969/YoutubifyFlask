@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 import subprocess
 import os
 import threading
+import pickle
 
 # Add Code to save and automatically reload queues and settings
 # Settings:
@@ -20,6 +21,9 @@ downloadThumbs = True
 audioNormalization = True
 
 queue = []
+if os.path.exists("queue.p"):
+	with open("queue.p","rb") as fp:
+		queue = pickle.load(fp)
 lastSearchPage = ""
 
 
@@ -36,7 +40,7 @@ def songDownloader(vidID, songName, url, submit):
 	if audioNormalization:
 		subprocess.run(["youtube-dl",url,"-f 140","-x","--audio-format","mp3","-o","download/"+vidID+".mp3"])
 		subprocess.run(["ffmpeg-normalize","static/"+vidID+".mp3","-c:a","libmp3lame","-b:a","320K","-f","-pr","-o","download/"+vidID+".mp3"])
-		subprocess.run(["ffmpeg","-i","download/"+vidID+".mp3","-filter:a","volume=10","-y","static/"+vidID+".mp3"])
+		subprocess.run(["ffmpeg","-i","download/"+vidID+".mp3","-filter:a","volume=2","-y","static/"+vidID+".mp3"])
 		os.remove("download/"+vidID+".mp3")
 	else:
 		subprocess.run(["youtube-dl",url,"-f 140","-x","--audio-format","mp3","-o","static/"+vidID+".mp3"])
@@ -50,6 +54,9 @@ def songDownloader(vidID, songName, url, submit):
 	elif submit == "Add Front of Queue":
 		print("Add Song to Front of Queue")
 		queue.insert(1,queueItem)
+		
+	with open("queue.p","wb") as fp:
+		pickle.dump(queue,fp)
 
 
 
@@ -205,14 +212,14 @@ def generateNext():
 							};
 						</script>
 					'''
-		basicPage += generateQueueItem(queue[0][0],queue[0][1],queue[0][2],0,False)
+		basicPage += generateQueueItem(queue[0][0],queue[0][1],queue[0][2],0)
 		basicPage += '''<form method='POST' action="nowPlaying">
 							<input type="submit" name="submit" value="Next" width="100%">
 						</form>
 						'''
 		count = 1
 		for i in queue[1:]:
-			basicPage += generateQueueItem(i[0],i[1],i[2],count,True)
+			basicPage += generateQueueItem(i[0],i[1],i[2],count)
 			count+=1
 		
 	else:
@@ -295,6 +302,8 @@ def nowPlaying():
 				os.remove("static/"+request.form['vidID']+".mp3")
 			if downloadThumbs and os.path.exists("static/"+request.form['vidID']+".jpg"):
 				os.remove("static/"+request.form['vidID']+".jpg")
+			with open("queue.p","wb") as fp:
+				pickle.dump(queue,fp)
 		elif request.form['submit'] == "Next":
 			temp = queue[0]
 			queue.remove(temp)
