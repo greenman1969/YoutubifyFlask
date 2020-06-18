@@ -49,14 +49,18 @@ def songDownloader(vidID, songName, url, submit):
 	
 	if submit == "Add Song":
 		print("Add Song")
+		print("Acquring queueTex")
 		queueTex.acquire(1)
+		print("Acquired queueTex")
 		queue.append(queueItem)
 		queueTex.release()
+		print("Released queueTex")
 	elif submit == "Add Front of Queue":
 		print("Add Song to Front of Queue")
-		queueTex.acquire()
+		queueTex.acquire(1)
 		queue.insert(1,queueItem)
 		queueTex.release()
+		print("Released queueTex")
 	
 	fileTex.acquire(1)
 	with open("queue.p","wb") as fp:
@@ -181,7 +185,9 @@ def generateQueueItem(vidID,name,url,queueNum):
 	return basicPage
 
 def generateNowPlaying():
+	print("Acquring queueTex")
 	queueTex.acquire(1)
+	print("Acquired queueTex")
 	if len(queue) != 0:
 		basicPage = '''	<audio controls id="player">
 							<source src="/static/'''+queue[0][0]+'''.mp3" type="audio/mpeg">
@@ -208,10 +214,13 @@ def generateNowPlaying():
 							<meta http-equiv="refresh" content="1">
 						</head>'''
 	queueTex.release()
+	print("Released queueTex")
 	return openHTML()+headHTML()+basicPage+closeHTML()
 	
 def generateNext():
+	print("Acquring queueTex")
 	queueTex.acquire(1)
+	print("Acquired queueTex")
 	if len(queue) != 0:
 		basicPage = '''	<audio controls autoplay id="player">
 							<source src="/static/'''+queue[0][0]+'''.mp3" type="audio/mpeg">
@@ -237,16 +246,20 @@ def generateNext():
 		basicPage='''	<head>
 							<meta http-equiv="refresh" content="1">
 						</head>'''
-	queueTex.release
+	queueTex.release()
+	print("Released queueTex")
 	return openHTML()+headHTML()+basicPage+closeHTML()
 def generateQueue():
 	basicPage=""
 	count = 1
+	print("Acquring queueTex")
 	queueTex.acquire(1)
+	print("Acquired queueTex")
 	for i in queue[1:]:
 		basicPage += generateQueueItem(i[0],i[1],i[2],count)
 		count+=1
 	queueTex.release()
+	print("Released queueTex")
 	return openHTML()+headHTML()+basicPage+closeHTML()
 def generateResult(vidID,name,url):
 	basicPage = '''	<div class="main">
@@ -296,13 +309,17 @@ def addSong():
 	queueItem = [request.form['vidID'],request.form['songName'],request.form['url']]
 	
 	# Duplicate Prevention
+	print("Acquring queueTex")
 	queueTex.acquire(1)
+	print("Acquired queueTex")
 	for i in queue:
 		if i[0]==queueItem[0]:
 			print("Item already Exists")
 			queueTex.release()
+			print("Released queueTex")
 			return lastSearchPage
 	queueTex.release()
+	print("Released queueTex")
 	t = threading.Thread(target=songDownloader, args=(request.form['vidID'],request.form['songName'],request.form['url'],request.form['submit'],), daemon=True)
 	t.start()
 	return lastSearchPage
@@ -310,7 +327,9 @@ def addSong():
 @app.route('/nowPlaying', methods=['GET','POST'])
 def nowPlaying():
 	if request.method == 'POST':
+		print("/nowPlaying Acquring queueTex")
 		queueTex.acquire(1)
+		print("/nowPlaying Acquired queueTex")
 		if request.form['submit'] == "Remove Song":
 			queue.remove(queue[int(request.form['queueNum'])])
 			if os.path.exists("static/"+request.form['vidID']+".mp3"):
@@ -326,17 +345,22 @@ def nowPlaying():
 			queue.remove(temp)
 			queue.append(temp)
 			queueTex.release()
+			print("/nowPlaying Released queueTex")
 			return generateNext()
 		queueTex.release()
+		print("/nowPlaying Released queueTex")
 	return generateNowPlaying()
 
 @app.route('/next')
 def next():
+	print("Acquring queueTex")
 	queueTex.acquire(1)
+	print("Acquired queueTex")
 	temp = queue[0]
 	queue.remove(temp)
 	queue.append(temp)
 	queueTex.release()
+	print("Released queueTex")
 	return generateNext()
 
 @app.route('/queuePage', methods=['GET','POST'])
@@ -379,7 +403,9 @@ def search():
 def generateSearchURL(searchTerm):
 	return '''https://youtube.com/results?search_query='''+searchTerm.replace(' ','+')
 if __name__ == '__main__':
+	print("Acquring queueTex")
 	queueTex.acquire(1)
+	print("Acquired queueTex")
 	if os.path.exists("queue.p"):
 		with open("queue.p","rb") as fp:
 			queue = pickle.load(fp)
@@ -389,6 +415,7 @@ if __name__ == '__main__':
 			songDownloader(i[0],i[1],i[2],'')
 			
 	queueTex.release()
+	print("Released queueTex")
 	app.run(host='0.0.0.0')
 
 
