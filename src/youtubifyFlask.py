@@ -21,9 +21,6 @@ downloadThumbs = True
 audioNormalization = True
 
 queue = []
-if os.path.exists("queue.p"):
-	with open("queue.p","rb") as fp:
-		queue = pickle.load(fp)
 lastSearchPage = ""
 
 
@@ -39,8 +36,8 @@ def songDownloader(vidID, songName, url, submit):
 
 	if audioNormalization:
 		subprocess.run(["youtube-dl",url,"-f 140","-x","--audio-format","mp3","-o","download/"+vidID+".mp3"])
-		subprocess.run(["ffmpeg-normalize","static/"+vidID+".mp3","-c:a","libmp3lame","-b:a","320K","-f","-pr","-o","download/"+vidID+".mp3"])
-		subprocess.run(["ffmpeg","-i","download/"+vidID+".mp3","-filter:a","volume=2","-y","static/"+vidID+".mp3"])
+		subprocess.run(["ffmpeg-normalize","download/"+vidID+".mp3","-c:a","libmp3lame","-b:a","320K","-f","-pr","-o","download/"+vidID+".mp3"])
+		subprocess.run(["ffmpeg","-i","download/"+vidID+".mp3","-filter:a","volume=4","-y","static/"+vidID+".mp3"])
 		os.remove("download/"+vidID+".mp3")
 	else:
 		subprocess.run(["youtube-dl",url,"-f 140","-x","--audio-format","mp3","-o","static/"+vidID+".mp3"])
@@ -57,6 +54,12 @@ def songDownloader(vidID, songName, url, submit):
 		
 	with open("queue.p","wb") as fp:
 		pickle.dump(queue,fp)
+
+
+
+
+
+
 
 
 
@@ -358,6 +361,13 @@ def search():
 def generateSearchURL(searchTerm):
 	return '''https://youtube.com/results?search_query='''+searchTerm.replace(' ','+')
 if __name__ == '__main__':
+	if os.path.exists("queue.p"):
+		with open("queue.p","rb") as fp:
+			queue = pickle.load(fp)
+		
+	for i in queue:
+		if not os.path.exists("static/"+i[0]+".mp3"):
+			songDownloader(i[0],i[1],i[2],'')
 	app.run(host='0.0.0.0')
 
 
