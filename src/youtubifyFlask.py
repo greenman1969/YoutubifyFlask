@@ -22,6 +22,7 @@ audioNormalization = True
 
 queue = []
 queueTex = threading.Lock()
+fileTex = threading.Lock()
 lastSearchPage = ""
 
 
@@ -56,9 +57,11 @@ def songDownloader(vidID, songName, url, submit):
 		queueTex.acquire()
 		queue.insert(1,queueItem)
 		queueTex.release()
+	
+	fileTex.acquire(1)
 	with open("queue.p","wb") as fp:
 		pickle.dump(queue,fp)
-
+	fileTex.release()
 
 
 
@@ -314,8 +317,10 @@ def nowPlaying():
 				os.remove("static/"+request.form['vidID']+".mp3")
 			if downloadThumbs and os.path.exists("static/"+request.form['vidID']+".jpg"):
 				os.remove("static/"+request.form['vidID']+".jpg")
+			fileTex.acquire(1)
 			with open("queue.p","wb") as fp:
 				pickle.dump(queue,fp)
+			fileTex.release()
 		elif request.form['submit'] == "Next":
 			temp = queue[0]
 			queue.remove(temp)
