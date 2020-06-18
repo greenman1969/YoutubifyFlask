@@ -21,6 +21,7 @@ downloadThumbs = True
 audioNormalization = True
 
 queue = []
+queueTex = threading.Lock()
 lastSearchPage = ""
 
 
@@ -47,11 +48,14 @@ def songDownloader(vidID, songName, url, submit):
 	
 	if submit == "Add Song":
 		print("Add Song")
+		queueTex.acquire(1)
 		queue.append(queueItem)
+		queueTex.release()
 	elif submit == "Add Front of Queue":
 		print("Add Song to Front of Queue")
+		queueTex.acquire()
 		queue.insert(1,queueItem)
-		
+		queueTex.release()
 	with open("queue.p","wb") as fp:
 		pickle.dump(queue,fp)
 
@@ -174,7 +178,7 @@ def generateQueueItem(vidID,name,url,queueNum):
 	return basicPage
 
 def generateNowPlaying():
-	
+	queueTex.acquire(1)
 	if len(queue) != 0:
 		basicPage = '''	<audio controls id="player">
 							<source src="/static/'''+queue[0][0]+'''.mp3" type="audio/mpeg">
@@ -200,10 +204,11 @@ def generateNowPlaying():
 		basicPage='''	<head>
 							<meta http-equiv="refresh" content="1">
 						</head>'''
-		
+	queueTex.release()
 	return openHTML()+headHTML()+basicPage+closeHTML()
 	
 def generateNext():
+	queueTex.acquire(1)
 	if len(queue) != 0:
 		basicPage = '''	<audio controls autoplay id="player">
 							<source src="/static/'''+queue[0][0]+'''.mp3" type="audio/mpeg">
@@ -229,15 +234,16 @@ def generateNext():
 		basicPage='''	<head>
 							<meta http-equiv="refresh" content="1">
 						</head>'''
-		
+	queueTex.release
 	return openHTML()+headHTML()+basicPage+closeHTML()
 def generateQueue():
 	basicPage=""
 	count = 1
+	queueTex.acquire(1)
 	for i in queue[1:]:
 		basicPage += generateQueueItem(i[0],i[1],i[2],count)
 		count+=1
-		
+	queueTex.release()
 	return openHTML()+headHTML()+basicPage+closeHTML()
 def generateResult(vidID,name,url):
 	basicPage = '''	<div class="main">
@@ -287,11 +293,13 @@ def addSong():
 	queueItem = [request.form['vidID'],request.form['songName'],request.form['url']]
 	
 	# Duplicate Prevention
+	queueTex.acquire(1)
 	for i in queue:
 		if i[0]==queueItem[0]:
 			print("Item already Exists")
+			queueTex.release()
 			return lastSearchPage
-	
+	queueTex.release()
 	t = threading.Thread(target=songDownloader, args=(request.form['vidID'],request.form['songName'],request.form['url'],request.form['submit'],), daemon=True)
 	t.start()
 	return lastSearchPage
@@ -299,6 +307,7 @@ def addSong():
 @app.route('/nowPlaying', methods=['GET','POST'])
 def nowPlaying():
 	if request.method == 'POST':
+		queueTex.acquire(1)
 		if request.form['submit'] == "Remove Song":
 			queue.remove(queue[int(request.form['queueNum'])])
 			if os.path.exists("static/"+request.form['vidID']+".mp3"):
@@ -311,14 +320,18 @@ def nowPlaying():
 			temp = queue[0]
 			queue.remove(temp)
 			queue.append(temp)
+			queueTex.release()
 			return generateNext()
+		queueTex.release()
 	return generateNowPlaying()
 
 @app.route('/next')
 def next():
+	queueTex.acquire(1)
 	temp = queue[0]
 	queue.remove(temp)
 	queue.append(temp)
+	queueTex.release()
 	return generateNext()
 
 @app.route('/queuePage', methods=['GET','POST'])
@@ -361,6 +374,7 @@ def search():
 def generateSearchURL(searchTerm):
 	return '''https://youtube.com/results?search_query='''+searchTerm.replace(' ','+')
 if __name__ == '__main__':
+	queueTex.acquire(1)
 	if os.path.exists("queue.p"):
 		with open("queue.p","rb") as fp:
 			queue = pickle.load(fp)
@@ -368,6 +382,8 @@ if __name__ == '__main__':
 	for i in queue:
 		if not os.path.exists("static/"+i[0]+".mp3"):
 			songDownloader(i[0],i[1],i[2],'')
+			
+	queueTex.release()
 	app.run(host='0.0.0.0')
 
 
