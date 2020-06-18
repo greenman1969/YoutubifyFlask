@@ -19,7 +19,6 @@ import threading
 downloadThumbs = True
 audioNormalization = True
 
-toAdd = []
 queue = []
 lastSearchPage = ""
 
@@ -33,11 +32,14 @@ def songDownloader(vidID, songName, url, submit):
 	queueItem = [vidID,songName,url]
 	
 	# Add Code to download the audio of the song in the queue.
-	subprocess.run(["youtube-dl",url,"-f 140","-x","--audio-format","mp3","-o","download/"+vidID+".mp3"])
+
 	if audioNormalization:
+		subprocess.run(["youtube-dl",url,"-f 140","-x","--audio-format","mp3","-o","download/"+vidID+".mp3"])
 		subprocess.run(["ffmpeg-normalize","static/"+vidID+".mp3","-c:a","libmp3lame","-b:a","320K","-f","-pr","-o","download/"+vidID+".mp3"])
 		subprocess.run(["ffmpeg","-i","download/"+vidID+".mp3","-filter:a","volume=10","-y","static/"+vidID+".mp3"])
-	
+		os.remove("download/"+vidID+".mp3")
+	else:
+		subprocess.run(["youtube-dl",url,"-f 140","-x","--audio-format","mp3","-o","static/"+vidID+".mp3"])
 	# Add Code to download the youtube thumbnail
 	if downloadThumbs:
 		subprocess.run(["wget","-O","static/"+vidID+".jpg","https://img.youtube.com/vi/"+vidID+"/maxresdefault.jpg"])
